@@ -1,0 +1,8 @@
+scikit-learn
+keras
+numpy
+opencv-python
+tensorflow
+matplotlib
+dcase_util
+librosa
