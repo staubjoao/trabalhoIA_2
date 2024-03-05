@@ -1,56 +1,11 @@
-from sklearn.metrics import confusion_matrix, classification_report
 from keras.utils import to_categorical
-from sklearn.metrics import accuracy_score
 import numpy as np
 from sklearn.model_selection import KFold
-from sklearn.svm import SVC
 import cv2
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import itertools
 import pickle
-
-
-def soma_simples(svm_preds, cnn_preds):
-    preds_compinadas = svm_preds + cnn_preds
-
-    return np.argmax(preds_compinadas, axis=1)
-
-
-def media_simples(svm_preds, cnn_preds):
-    # Calcule as previsões combinadas por média simples
-    preds_combinadas = (svm_preds + cnn_preds) / 2.0
-
-    # Obtenha as classes preditas usando o argmax
-    classes_preditas = np.argmax(preds_combinadas, axis=1)
-
-    return classes_preditas
-
-
-def media_ponderada(svm_preds, cnn_preds):
-    # Defina os pesos para cada modelo
-    peso_svm = 0.4
-    peso_cnn = 0.6
-
-    # Calcule as previsões combinadas por média ponderada
-    preds_combinadas = (peso_svm * svm_preds + peso_cnn *
-                        cnn_preds) / (peso_svm + peso_cnn)
-
-    # Obtenha as classes preditas usando o argmax
-    classes_preditas = np.argmax(preds_combinadas, axis=1)
-
-    return classes_preditas
-
-
-def maiores_valores(svm_preds, cnn_preds):
-    # Realize a fusão selecionando os maiores valores entre as previsões de cada modelo
-    fusion_preds = np.maximum(svm_preds, cnn_preds)
-
-    # Obtenha as classes preditas usando o argmax
-    classes_preditas = np.argmax(fusion_preds, axis=1)
-
-    return classes_preditas
-
 
 input_shape = (256, 256, 3)
 classes = ["beach", "bus", "cafe_restaurant", "car", "city_center", "forest_path", "grocery_store",
@@ -116,8 +71,6 @@ def cnn_model():
 
 labels = []
 images = []
-X = []
-y = []
 
 # Leitura dos dados para a CNN
 path = './spec_evaluation_janela/'
@@ -139,44 +92,20 @@ for i in range(1170):
     labels.append(k)
     j += 1
 
-# Leitura dos dados para SVM
-arq = open("./features_LBP_janela.txt", "r")
-for linha in arq:
-    aux = linha.split("|")
-    lbp_local = []
-    for i in range(len(aux)-1):
-        classe_local = []
-        aux2 = aux[i].split(";")
-        for j in aux2:
-            classe_local.append(float(j))
-        lbp_local.append(classe_local)
-    X.append(lbp_local)
-    y.append(int(aux[len(aux)-1].replace("\n", "")))
-arq.close()
-
 histories = []
 scores_array = []
-acc_soma_simples = []
-acc_media_simples = []
-acc_media_ponderada = []
-acc_maiores_valores = []
-vetor_resultados_soma_simples = []
-vetor_resultados_media_simples = []
-vetor_resultados_media_ponderada = []
-vetor_resultados_maiores_valores = []
 y_preds = []
 
 
 # Definição dos valores para treinamento
 k_fold = 5
-epochs = 50
+epochs = 1
 batch_size = 64
 
 # Para a CNN
 acc_per_fold = []
 loss_per_fold = []
 best_model, best_acc = None, 0.0
-best_model_svm, best_acc_svm = None, 0.0
 
 # Split dos folds
 kfold = KFold(n_splits=k_fold, shuffle=True)
@@ -194,14 +123,8 @@ for train, test in kfold.split(images, labels):
     x_train_cnn = []
     y_train_cnn = []
 
-    x_train_svm = []
-    y_train_svm = []
-
     x_test_cnn = []
     y_test_cnn = []
-
-    x_test_svm = []
-    y_test_svm = []
 
     # Fazendo o split dos dados para treinamento
     for i in train:
@@ -209,17 +132,11 @@ for train, test in kfold.split(images, labels):
             x_train_cnn.append(images[i][j])
             y_train_cnn.append(labels[i])
 
-            x_train_svm.append(X[i][j])
-            y_train_svm.append(y[i])
-
     # Fazendo o split dos dados para teste
     for i in test:
         for j in range(6):
             x_test_cnn.append(images[i][j])
             y_test_cnn.append(labels[i])
-
-            x_test_svm.append(X[i][j])
-            y_test_svm.append(y[i])
 
     # Tranformando em vetores numpy
     x_train_cnn = np.array(x_train_cnn)
@@ -227,24 +144,8 @@ for train, test in kfold.split(images, labels):
     y_train_cnn = np.array(y_train_cnn)
     y_test_cnn = np.array(y_test_cnn)
 
-    y_pred = y_test_cnn[:]
-    for res in y_pred:
-        y_preds.append(res)
-
     y_train_cnn = to_categorical(y_train_cnn, num_classes=len(classes))
     y_test_cnn = to_categorical(y_test_cnn, num_classes=len(classes))
-
-    # SVM
-    svm_model = SVC(C=100, kernel='poly', gamma='scale', probability=True)
-    svm_model.fit(x_train_svm, y_train_svm)
-    svm_predictions = svm_model.predict_proba(x_test_svm)
-
-    svm_predictions_acc = svm_model.predict(x_test_svm)
-    acc_svm = accuracy_score(y_test_svm, svm_predictions_acc)
-
-    if acc_svm > best_acc_svm:
-        best_acc_svm = acc_svm
-        best_model_svm = svm_model
 
     # CNN
     history = model.fit(x_train_cnn, y_train_cnn,
@@ -252,55 +153,6 @@ for train, test in kfold.split(images, labels):
                         epochs=epochs)
     histories.append(history.history)
     scores = model.evaluate(x_test_cnn, y_test_cnn, verbose=0)
-    cnn_predictions = model.predict(x_test_cnn)
-
-    # Salvar predições em texto
-    np.savetxt(f'predicoes_final/predicoes_real_fold{fold_no}.txt',
-               y_pred, fmt="%f", delimiter=';')
-    np.savetxt(f'predicoes_final/predicoes_svm_fold{fold_no}.txt',
-               svm_predictions, fmt="%f", delimiter=';')
-    np.savetxt(f'predicoes_final/predicoes_cnn_fold{fold_no}.txt',
-               cnn_predictions, fmt="%f", delimiter=';')
-
-    # Acurácia para cada fusão
-    resultado_soma_simples = soma_simples(
-        svm_predictions, cnn_predictions)
-    resultado_media_simples = media_simples(
-        svm_predictions, cnn_predictions)
-    resultado_media_ponderada = media_ponderada(
-        svm_predictions, cnn_predictions)
-    resultado_maiores_valores = maiores_valores(
-        svm_predictions, cnn_predictions)
-
-    # Adiciona o resultado no vetor para fazer a validação fora do for
-    for res in resultado_soma_simples:
-        vetor_resultados_soma_simples.append(res)
-
-    for res in resultado_media_simples:
-        vetor_resultados_media_simples.append(res)
-
-    for res in resultado_media_ponderada:
-        vetor_resultados_media_ponderada.append(res)
-
-    for res in resultado_maiores_valores:
-        vetor_resultados_maiores_valores.append(res)
-
-    # Imprime os resultados
-    acc_aux = accuracy_score(y_pred, resultado_soma_simples)
-    acc_soma_simples.append(acc_aux)
-    print("acc_soma_simples:", acc_aux)
-
-    acc_aux = accuracy_score(y_pred, resultado_media_simples)
-    acc_media_simples.append(acc_aux)
-    print("acc_media_simples:", acc_aux)
-
-    acc_aux = accuracy_score(y_pred, resultado_media_ponderada)
-    acc_media_ponderada.append(acc_aux)
-    print("acc_media_ponderada:", acc_aux)
-
-    acc_aux = accuracy_score(y_pred, resultado_maiores_valores)
-    acc_maiores_valores.append(acc_aux)
-    print("acc_maiores_valores:", acc_aux)
 
     # Recolhe as melhores accuracias no modelo CNN para salvar depois
     if scores[1] > best_acc:
@@ -313,48 +165,6 @@ for train, test in kfold.split(images, labels):
     loss_per_fold.append(scores[0])
 
     fold_no += 1
-
-
-# Salvar modelo SVM
-with open('saida_final/modelo_svm.pkl', 'wb') as f:
-    pickle.dump(svm_model, f)
-
-# Imprime os resultados
-print("Fusão")
-lista_acuracia = [np.mean(acc_soma_simples), np.mean(acc_media_simples),
-                  np.mean(acc_media_ponderada), np.mean(acc_maiores_valores)]
-nomes_metodos = ['Soma Simples', 'Média Simples',
-                 'Média Ponderada', 'Maiores Valores']
-
-# Acurácia média para cada fusão
-for i in range(len(nomes_metodos)):
-    print(f"Acurácia média para {nomes_metodos[i]}: {lista_acuracia[i]}")
-
-# Armazena o melhor método de fusão
-melhor_metodo = np.argmax(lista_acuracia)
-melhor_acuracia = lista_acuracia[melhor_metodo]
-nome_melhor_metodo = nomes_metodos[melhor_metodo]
-
-# Imprime e plota a matriz e o f1-score
-print("Melhor método", nome_melhor_metodo)
-resultado = []
-if melhor_metodo == 0:
-    resultado = vetor_resultados_soma_simples[:]
-elif melhor_metodo == 1:
-    resultado = vetor_resultados_media_simples[:]
-elif melhor_metodo == 2:
-    resultado = vetor_resultados_media_ponderada[:]
-elif melhor_metodo == 3:
-    resultado = vetor_resultados_maiores_valores[:]
-
-matriz_confusao = confusion_matrix(y_preds, resultado)
-relatorio_classificacao = classification_report(y_preds, resultado)
-
-plot_confusion_matrix(matriz_confusao, classes=[
-    i for i in range(1, 16)], title='Matriz geral')
-
-print("Tabela F1-score - {}".format(nome_melhor_metodo))
-print(relatorio_classificacao)
 
 loss = []
 accuracy = []
