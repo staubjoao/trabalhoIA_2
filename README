@@ -1,0 +1,16 @@
+Trabalho desenvolvido pelos acadêmicos:
+
+Matheus M. Dias, Vitor A. Greff e João Vitor S. Castanho.
+
+O trabalho consiste em um estudo comparativo entre diferentes modelos de classificação: SVM, KNN e CNN.
+
+Os arquivos deste repositório são:
+
+requirements.txt: utilizado para instalar as bibliotecas Python que foram utilizadas.
+baixar_base.py: script utilizado para baixar a base de dados utilizada.
+executar_cnn.py: script utilizado para executar o treinamento da CNN.
+features_LBP_janela.txt: features referentes ao LBP.
+meta.txt: diretório e classe de cada arquivo de áudio.
+plotar_confusao_cnn.ipynb: utilizado para plotar a matriz de confusão da CNN.
+preparando_LBP.ipynb: utilizado para preparar o LBP.
+preparando_spec.py: utilizado para preparar todos os arquivos de áudio e extrair seus respectivos espectrogramas.
