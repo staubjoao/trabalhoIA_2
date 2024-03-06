@@ -144,6 +144,10 @@ for train, test in kfold.split(images, labels):
     y_train_cnn = np.array(y_train_cnn)
     y_test_cnn = np.array(y_test_cnn)
 
+    y_pred = y_test_cnn[:]
+    for res in y_pred:
+        y_preds.append(res)
+
     y_train_cnn = to_categorical(y_train_cnn, num_classes=len(classes))
     y_test_cnn = to_categorical(y_test_cnn, num_classes=len(classes))
 
@@ -153,6 +157,13 @@ for train, test in kfold.split(images, labels):
                         epochs=epochs)
     histories.append(history.history)
     scores = model.evaluate(x_test_cnn, y_test_cnn, verbose=0)
+    cnn_predictions = model.predict(x_test_cnn)
+
+    # Salvar predições em texto
+    np.savetxt(f'predicoes_final/predicoes_real_fold{fold_no}.txt',
+               y_pred, fmt="%f", delimiter=';')
+    np.savetxt(f'predicoes_final/predicoes_cnn_fold{fold_no}.txt',
+               cnn_predictions, fmt="%f", delimiter=';')
 
     # Recolhe as melhores accuracias no modelo CNN para salvar depois
     if scores[1] > best_acc:
